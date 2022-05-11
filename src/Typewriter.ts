@@ -1,22 +1,35 @@
 export default class Typewriter {
-  element: HTMLElement;
+  element: HTMLDivElement;
+  parent: HTMLElement;
   loop: boolean;
   typingSpeed: number;
   eraseSpeed: number;
   #buffer: Array<Function> = [];
 
   constructor(
-    element: HTMLElement,
+    parent: HTMLElement,
     { loop = true, typingSpeed = 100, eraseSpeed = 100 } = {}
   ) {
-    this.element = element;
+    this.parent = parent;
+    this.element = document.createElement("div");
+    parent.append(this.element);
     this.loop = loop;
     this.typingSpeed = typingSpeed;
     this.eraseSpeed = eraseSpeed;
   }
   typeString(string: string) {
+    let i = 0;
     this.#buffer.push(() => {
-      this.element.innerText += string;
+      return new Promise<void>((resolve) => {
+        const interval = setInterval(() => {
+          this.element.innerText += string[i];
+          i++;
+          if (i === string.length) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, this.typingSpeed);
+      });
     });
     return this;
   }
@@ -39,7 +52,9 @@ export default class Typewriter {
     });
     return this;
   }
-  start() {
-    this.#buffer.forEach((fn) => fn());
+  async start() {
+    for (let fn of this.#buffer) {
+      await fn();
+    }
   }
 }

@@ -1,26 +1,22 @@
 export default class Typewriter {
   element: HTMLDivElement;
-  parent: HTMLElement;
   loop: boolean;
   typingSpeed: number;
   eraseSpeed: number;
   #buffer: Array<Function> = [];
 
-  constructor(
-    parent: HTMLElement,
-    { loop = true, typingSpeed = 100, eraseSpeed = 100 } = {}
-  ) {
-    this.parent = parent;
+  constructor(parent: HTMLElement, { loop = true, typingSpeed = 100, eraseSpeed = 100 } = {}) {
     this.element = document.createElement("div");
     parent.append(this.element);
     this.loop = loop;
     this.typingSpeed = typingSpeed;
     this.eraseSpeed = eraseSpeed;
   }
+
   typeString(string: string) {
-    let i = 0;
     this.#buffer.push(() => {
       return new Promise<void>((resolve) => {
+        let i = 0;
         const interval = setInterval(() => {
           this.element.innerText += string[i];
           i++;
@@ -33,28 +29,56 @@ export default class Typewriter {
     });
     return this;
   }
+
   pauseFor(ms: number) {
     this.#buffer.push(() => {
-      setTimeout(() => {}, ms);
+      return new Promise<void>((resolve) => {
+        setTimeout(() => {}, ms);
+        resolve();
+      });
     });
     return this;
   }
+
   deleteChars(charCount: number) {
     this.#buffer.push(() => {
-      this.element.innerText = this.element.innerText.slice(0, -charCount);
+      return new Promise<void>((resolve) => {
+        let i = charCount;
+        const interval = setInterval(() => {
+          this.element.innerText = this.element.innerText.slice(0, -1);
+          i--;
+          if (i === 0) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, this.eraseSpeed);
+      });
     });
     return this;
   }
 
   deleteAll(speed = this.eraseSpeed) {
     this.#buffer.push(() => {
-      this.element.innerText = "";
+      return new Promise<void>((resolve) => {
+        let i = this.element.innerText.length;
+        const interval = setInterval(() => {
+          this.element.innerText = this.element.innerText.slice(0, -1);
+          i--;
+          if (i === 0) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, speed);
+      });
     });
     return this;
   }
   async start() {
-    for (let fn of this.#buffer) {
-      await fn();
+    let cb = this.#buffer.shift();
+    while (cb) {
+      if (this.loop) this.#buffer.push(cb);
+      await cb();
+      cb = this.#buffer.shift();
     }
   }
 }
